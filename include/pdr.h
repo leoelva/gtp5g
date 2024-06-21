@@ -41,10 +41,30 @@ struct sdf_filter {
     u32 *bi_id;
 };
 
+struct mac_addr_fields {
+    unsigned char *src;
+    unsigned char *dst;
+    unsigned char *upper_src;
+    unsigned char *upper_dst;
+};
+
+#define MAX_MAC_ADDR_NUM (16)
+struct epf_filter {
+    // uint32_t *eth_filter_id;
+    // uint8_t *eth_filter_properties;
+    uint8_t mac_num;
+    struct mac_addr_fields macAddrs[MAX_MAC_ADDR_NUM];
+    uint16_t *ethertype;
+    // TODO: ctag, stag, sdf_filter
+
+    struct epf_filter *next;
+};
+
 struct pdi {
     struct in_addr *ue_addr_ipv4;
     struct local_f_teid *f_teid;
     struct sdf_filter *sdf;
+    struct epf_filter *epf;
 };
 
 #define QER_ID_SIZE sizeof(u32)
