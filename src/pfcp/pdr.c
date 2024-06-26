@@ -80,29 +80,33 @@ static void pdr_context_free(struct rcu_head *head)
         }
         kfree(pdi);
 
-        // TODO
-        for (epf = pdi->epf;epf!=NULL;) {
-            int i;
-            struct epf_filter *curr = epf;
-            for (i = 0; i < epf->mac_num; i++) {
-                struct mac_addr_fields *macAddr = &(epf->macAddrs[i]);
-                if (macAddr->src) {
-                    kfree(macAddr->src);
+        // free epf_list
+        if (!list_empty(&pdi->epf_list)) {
+            list_for_each_entry(epf, &pdi->epf_list, list) {
+                // free mac_list
+                if (!list_empty(&epf->mac_list)) {
+                    struct mac_addr_fields *macAddr;
+                    list_for_each_entry(macAddr, &epf->mac_list, list) {
+                        if (macAddr->src) {
+                            kfree(macAddr->src);
+                        }
+                        if (macAddr->dst) {
+                            kfree(macAddr->dst);
+                        }
+                        if (macAddr->upper_src) {
+                            kfree(macAddr->upper_src);
+                        }
+                        if (macAddr->upper_dst) {
+                            kfree(macAddr->upper_dst);
+                        }
+                    }
                 }
-                if (macAddr->dst) {
-                    kfree(macAddr->dst);
-                }
-                if (macAddr->upper_src) {
-                    kfree(macAddr->upper_src);
-                }
-                if (macAddr->upper_dst) {
-                    kfree(macAddr->upper_dst);
-                }
+
+                if (epf->ethertype)
+                    kfree(epf->ethertype);
+
+                kfree(epf);
             }
-            if (epf->ethertype)
-                kfree(epf->ethertype);
-            epf=epf->next;
-            kfree(curr);
         }
     }
 
