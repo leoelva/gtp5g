@@ -95,7 +95,8 @@ static netdev_tx_t gtp5g_dev_xmit(struct sk_buff *skb, struct net_device *dev)
         break;
     default:
         // ethernet pkt
-        skb_dump("ether_", skb, true);
+        // TBD: ethernet pdu session also support IP pkt
+        // should we has a flag to seperate ip and ethernet mode?
         ret = gtp5g_handle_skb_ethernet(skb, dev, &pktinfo);
     }
     rcu_read_unlock();
