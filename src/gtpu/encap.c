@@ -878,11 +878,11 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     
     if (GTP5G_PDN_TYPE_ETHERNET == pdr->pdn_type) {
         struct gtp5g_dev *gtp = netdev_priv(dev);
-        if(!gtp->TSNdev){
+        if(!gtp->ether_n6_dev){
             GTP5G_ERR(dev, "TSN Device is not found\n");
             return -ENODEV;
         }
-        skb->dev = gtp->TSNdev;
+        skb->dev = gtp->ether_n6_dev;
 
         skb_reset_mac_header(skb);
         
