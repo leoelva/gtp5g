@@ -755,6 +755,7 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     struct forwarding_policy *fwd_policy;
     struct gtpv1_hdr *gtp1 = (struct gtpv1_hdr *)(skb->data + sizeof(struct udphdr));
     struct iphdr *iph;
+    struct ethhdr *eth_header;
     struct udphdr *uh;
     struct pcpu_sw_netstats *stats;
     int ret;
@@ -763,6 +764,9 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     TrafficPolicer* tp = NULL;
     Color color = Green;
     struct qer __rcu *qer_with_rate = NULL;
+
+
+    GTP5G_ERR(dev, "fwd skb_encap\n");
 
     if (gtp1->type == GTPV1_MSG_TYPE_TPDU)
         volume_mbqe = ip4_rm_header(skb, hdrlen);
@@ -828,11 +832,12 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
         }
     }
 
+GTP5G_ERR(dev, "cp1\n");
     if (gtp1->type != GTPV1_MSG_TYPE_TPDU) {
         GTP5G_WAR(dev, "Uplink: GTPv1 msg type is not TPDU\n");
         return -1;
     }
-
+GTP5G_ERR(dev, "cp2\n");
     // Get rid of the GTP-U + UDP headers.
     if (iptunnel_pull_header(skb,
             hdrlen,
@@ -842,7 +847,7 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
         GTP5G_ERR(dev, "Failed to pull GTP-U and UDP headers\n");
         return PKT_DROPPED;
     }
-
+GTP5G_ERR(dev, "cp3\n");
     /* Now that the UDP and the GTP header have been removed, set up the
      * new network header. This is required by the upper layer to
      * calculate the transport header.
@@ -861,7 +866,7 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
     stats->rx_bytes += skb->len;
 #endif
     u64_stats_update_end(&stats->syncp);
-
+GTP5G_ERR(dev, "cp4\n");
     pdr->ul_pkt_cnt++;
     pdr->ul_byte_cnt += skb->len; /* length without GTP header */
     GTP5G_INF(NULL, "PDR (%u) UL_PKT_CNT (%llu) UL_BYTE_CNT (%llu)", pdr->id, pdr->ul_pkt_cnt, pdr->ul_byte_cnt);
@@ -875,9 +880,40 @@ static int gtp5g_fwd_skb_encap(struct sk_buff *skb, struct net_device *dev,
         GTP5G_TRC(pdr->dev, "Drop red packet");
         return PKT_DROPPED;
     }
-    ret = netif_rx(skb);
-    if (ret != NET_RX_SUCCESS) {
-        GTP5G_ERR(dev, "Uplink: Packet got dropped\n");
+GTP5G_ERR(dev, "cp5\n");    
+skb_dump("ether_xmit_", skb, true);
+iph = ip_hdr(skb);
+skb_reset_mac_header(skb);
+eth_header = eth_hdr(skb);
+    // LeoHung TODO
+    // if ((skb->protocol == htons(ETH_P_IP)) || (skb->protocol == htons(ETH_P_IPV6))) {
+    // if(((iph->version == 4 || iph->version == 6) && (iph->ihl>=5 && iph->ihl<=15))){
+    // if ((eth_header->h_proto == htons(ETH_P_IP)) || (eth_header->h_proto == htons(ETH_P_IPV6))) {
+    if (GTP5G_PDN_TYPE_ETHERNET == pdr->pdn_type) {
+        struct gtp5g_dev *gtp = netdev_priv(dev);
+        GTP5G_ERR(dev, "fwd ethernet\n");
+        if(!gtp->TSNdev){
+            GTP5G_ERR(dev, "TSN Device is not found\n");
+            return -ENODEV;
+        }
+        skb->dev = gtp->TSNdev;
+
+        // Recalculate the MAC header and network header offsets if necessary
+        skb_reset_mac_header(skb);
+        skb_reset_network_header(skb);
+        
+        ret = dev_queue_xmit(skb);
+        if (ret < 0) {
+            GTP5G_ERR(dev, "Uplink: xmit ethernet pkt err %d\n", ret);
+        } else {
+            skb_dump("ether_xmit_", skb, true);
+        }
+    } else {
+        GTP5G_ERR(dev, "fwd ip\n");
+        ret = netif_rx(skb);
+        if (ret != NET_RX_SUCCESS) {
+            GTP5G_ERR(dev, "Uplink: Packet got dropped\n");
+        }
     }
 
     return PKT_FORWARDED;

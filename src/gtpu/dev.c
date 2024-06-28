@@ -47,6 +47,11 @@ static int gtp5g_dev_init(struct net_device *dev)
 
     gtp->dev = dev;
 
+    gtp->TSNdev = dev_get_by_name(&init_net,"ens21"); // LeoHung TODO get ens21 from upf
+    if(!gtp->TSNdev){
+        return -ENODEV;
+    }
+
     dev->tstats = netdev_alloc_pcpu_stats(struct pcpu_sw_netstats);
     if (!dev->tstats) {
         return -ENOMEM;
@@ -58,6 +63,8 @@ static int gtp5g_dev_init(struct net_device *dev)
 static void gtp5g_dev_uninit(struct net_device *dev)
 {
     struct gtp5g_dev *gtp = netdev_priv(dev);
+
+    dev_put(gtp->TSNdev);
 
     gtp5g_encap_disable(gtp->sk1u);
     free_percpu(dev->tstats);

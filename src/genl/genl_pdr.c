@@ -470,6 +470,9 @@ static int pdr_fill(struct pdr *pdr, struct gtp5g_dev *gtp, struct genl_info *in
             if (err)
                 return err;
             break;
+        case GTP5G_PDR_PDN_TYPE:
+            pdr->pdn_type = nla_get_u8(hdr);
+            break;
         }
         hdr = nla_next(hdr, &remaining);
     }
@@ -1154,6 +1157,9 @@ static int gtp5g_genl_fill_pdr(struct sk_buff *skb, u32 snd_portid, u32 snd_seq,
         if (gtp5g_genl_fill_pdi(skb, pdr->pdi))
             goto genlmsg_fail;
     }
+
+    if (nla_put_u8(skb, GTP5G_PDR_PDN_TYPE, pdr->pdn_type))
+        goto genlmsg_fail;
 
     genlmsg_end(skb, genlh);
     return 0;
